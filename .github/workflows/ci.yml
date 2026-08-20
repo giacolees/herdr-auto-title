@@ -56,6 +56,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
       - name: 本物の HOME を触らせないための設定ディレクトリを用意する
         run: |
           echo "CLAUDE_CONFIG_DIR=$RUNNER_TEMP/claude" >> "$GITHUB_ENV"
@@ -66,13 +69,15 @@ jobs:
           # Pi 0.83 以前のインストールが作った hooks/ も移行できる。
           mkdir -p "$PI_CODING_AGENT_DIR/hooks"
           touch "$PI_CODING_AGENT_DIR/hooks/herdr-auto-title.py"
-          ./install.sh --claude --codex --pi
-          ./install.sh --claude --codex --pi
+          ./install.sh --claude --codex --pi --cmd
+          ./install.sh --claude --codex --pi --cmd
           test -x "$CLAUDE_CONFIG_DIR/hooks/herdr-auto-title.py"
           test -x "$CODEX_HOME/hooks/herdr-auto-title.py"
           test -x "$PI_CODING_AGENT_DIR/herdr-auto-title/herdr-auto-title.py"
           test -f "$PI_CODING_AGENT_DIR/extensions/herdr-auto-title.ts"
           test ! -e "$PI_CODING_AGENT_DIR/hooks"
+          test -f ".commandcode/mods/herdr-auto-title.ts"
+          test -f ".commandcode/mods/herdr_auto_title.py"
           claude_settings="$CLAUDE_CONFIG_DIR/settings.json"
           claude_hooks=$(grep -c herdr-auto-title.py "$claude_settings")
           test "$claude_hooks" -eq 1
@@ -80,12 +85,20 @@ jobs:
       - name: 入れた hook が herdr の外では黙って抜ける
         run: |
           echo '{}' | python3 "$CLAUDE_CONFIG_DIR/hooks/herdr-auto-title.py"
+          echo '{"agent":"cmd","session_id":"test","prompt":"hello"}' | python3 .commandcode/mods/herdr_auto_title.py; test $? -eq 0
+      - name: cmd mod still loads
+        run: |
+          npm i -g command-code 2>&1 | tail -n 5
+          cmd mods list 2>&1 | head -n 20
+          cmd --mod ./.commandcode/mods/herdr-auto-title.ts -p "say hi" 2>&1 | head -n 20
       - name: uninstall
         run: |
-          ./install.sh --uninstall --claude --codex --pi
+          ./install.sh --uninstall --claude --codex --pi --cmd
           test ! -e "$CLAUDE_CONFIG_DIR/hooks/herdr-auto-title.py"
           test ! -e "$CODEX_HOME/hooks/herdr-auto-title.py"
           test ! -e "$PI_CODING_AGENT_DIR/herdr-auto-title/herdr-auto-title.py"
           test ! -e "$PI_CODING_AGENT_DIR/extensions/herdr-auto-title.ts"
+          test ! -e ".commandcode/mods/herdr_auto_title.py"
+          test -f ".commandcode/mods/herdr-auto-title.ts"
           test "$(cat "$CLAUDE_CONFIG_DIR/settings.json")" = "{}"
           test "$(cat "$CODEX_HOME/hooks.json")" = "{}"

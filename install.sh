@@ -1,16 +1,18 @@
 #!/bin/sh
-# Register herdr auto title for Claude Code, Codex, and Pi.
+# Register herdr auto title for Claude Code, Codex, Pi, and Command Code.
 #
 #   ./install.sh              install / update for every agent found
 #   ./install.sh --claude     Claude Code only
 #   ./install.sh --codex      Codex only
 #   ./install.sh --pi         Pi only
+#   ./install.sh --cmd        Command Code only
 #   ./install.sh --uninstall  uninstall (narrow it down with an agent option)
 set -eu
 
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 source_file="$script_dir/herdr_auto_title.py"
 pi_source_file="$script_dir/pi_extension.ts"
+cmd_source_dir="$script_dir/.commandcode/mods"
 claude_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 codex_dir="${CODEX_HOME:-$HOME/.codex}"
 pi_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
@@ -24,12 +26,13 @@ for arg in "$@"; do
   --claude) targets="$targets claude" ;;
   --codex) targets="$targets codex" ;;
   --pi) targets="$targets pi" ;;
+  --cmd) targets="$targets cmd" ;;
   -h | --help)
-    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
     exit 0
     ;;
   *)
-    echo "usage: $0 [--claude] [--codex] [--pi] [--uninstall]" >&2
+    echo "usage: $0 [--claude] [--codex] [--pi] [--cmd] [--uninstall]" >&2
     exit 2
     ;;
   esac
@@ -51,9 +54,12 @@ if [ -z "$targets" ]; then
   if [ -d "$pi_dir" ] || command -v pi >/dev/null 2>&1; then
     targets="$targets pi"
   fi
+  if command -v cmd >/dev/null 2>&1; then
+    targets="$targets cmd"
+  fi
 fi
 if [ -z "$targets" ]; then
-  echo "neither Claude Code, Codex, nor Pi found ($claude_dir / $codex_dir / $pi_dir)" >&2
+  echo "neither Claude Code, Codex, Pi, nor Command Code found ($claude_dir / $codex_dir / $pi_dir)" >&2
   exit 1
 fi
 
@@ -82,9 +88,35 @@ for target in $targets; do
     extension_file="$pi_dir/extensions/herdr-auto-title.ts"
     label="Pi"
     ;;
+  cmd)
+    # Project mod lives inside the repo; no per-user path needed.
+    label="Command Code"
+    ;;
   esac
 
   echo "--- $label"
+  if [ "$target" = cmd ]; then
+    if [ "$mode" = install ]; then
+      # Project mod is checked in; just verify it exists.
+      if [ ! -f "$cmd_source_dir/herdr-auto-title.ts" ]; then
+        echo ".commandcode/mods/herdr-auto-title.ts not found" >&2
+        exit 1
+      fi
+      if [ ! -f "$source_file" ]; then
+        echo "herdr_auto_title.py not found: $source_file" >&2
+        exit 1
+      fi
+      # Also provide the generator next to the mod for the installed copy.
+      cp "$source_file" "$cmd_source_dir/herdr_auto_title.py"
+      echo "installed: Command Code mod -> $cmd_source_dir/herdr-auto-title.ts"
+      echo "installed: generator -> $cmd_source_dir/herdr_auto_title.py"
+    else
+      rm -f "$cmd_source_dir/herdr_auto_title.py"
+      echo "removed: $cmd_source_dir/herdr_auto_title.py"
+      echo "note: mod file $cmd_source_dir/herdr-auto-title.ts is version-controlled and kept"
+    fi
+    continue
+  fi
   if [ "$target" = pi ]; then
     if [ "$mode" = install ]; then
       [ -f "$pi_source_file" ] || {
@@ -209,6 +241,13 @@ case " $targets " in
 *" pi "*)
   if [ "$mode" = install ]; then
     echo "Pi: start a new session, or run /reload in an existing one, to load the extension."
+  fi
+  ;;
+esac
+case " $targets " in
+*" cmd "*)
+  if [ "$mode" = install ]; then
+    echo "Command Code: run /reload to load the mod, or start a new session. Trust the project when prompted."
   fi
   ;;
 esac

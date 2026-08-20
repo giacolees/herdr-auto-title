@@ -174,6 +174,9 @@ class DetectAgentTest(unittest.TestCase):
     def test_explicit_pi_agent_is_detected(self):
         self.assertEqual(hat.detect_agent({"agent": "pi"}), hat.PI)
 
+    def test_explicit_cmd_agent_is_detected(self):
+        self.assertEqual(hat.detect_agent({"agent": "cmd"}), hat.CMD)
+
 
 class PiGeneratorTest(unittest.TestCase):
     @mock.patch.object(hat, "run_generator")
@@ -193,6 +196,24 @@ class PiGeneratorTest(unittest.TestCase):
         self.assertIn("--model", command)
         self.assertIn("openai-codex/gpt-5.6-terra", command)
         self.assertIn("Pi session", prompt)
+
+
+class CmdGeneratorTest(unittest.TestCase):
+    @mock.patch.object(hat, "run_generator")
+    def test_runs_cmd_in_isolated_print_mode(self, run_generator):
+        run_generator.return_value = subprocess.CompletedProcess([], 0, "Fix title generator\n", "")
+
+        self.assertEqual(
+            hat.generate_with_cmd("1. fix the title generator", ""),
+            "Fix title generator",
+        )
+
+        command, stdin = run_generator.call_args.args
+        self.assertEqual(command[:2], ["cmd", "-p"])
+        self.assertIsNone(stdin)
+        self.assertIn("--no-session", command)
+        self.assertIn("--no-skills", command)
+        self.assertTrue(any("Command Code session" in str(part) for part in command))
 
 
 class TranscriptTest(unittest.TestCase):

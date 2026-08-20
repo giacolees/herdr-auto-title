@@ -1,7 +1,7 @@
 <h1 align="center">herdr auto title</h1>
 
 <p align="center">
-  Claude Code、Codex、Pi の会話内容から短いタイトルを自動生成して、<a href="https://herdr.dev">herdr</a> のタブ名に反映する連携機能。
+  Claude Code、Codex、Pi、Command Code の会話内容から短いタイトルを自動生成して、<a href="https://herdr.dev">herdr</a> のタブ名に反映する連携機能。
 </p>
 
 <p align="center">
@@ -24,13 +24,13 @@
   <img src="docs/demo.gif" alt="連番だったタブ名がプロンプトの内容に合わせて書き換わる様子" />
 </p>
 
-タイトルの生成は呼び出し元と同じ CLI に投げる。Claude Code なら `claude -p`、Codex なら `codex exec`、Pi なら `pi -p`。
+タイトルの生成は呼び出し元と同じ CLI に投げる。Claude Code なら `claude -p`、Codex なら `codex exec`、Pi なら `pi -p`、Command Code なら `cmd -p`。
 
 ## 必要なもの
 
-- herdr のペイン内で動いている Claude Code、Codex、または Pi（`HERDR_ENV=1` が立っていること）
+- herdr のペイン内で動いている Claude Code、Codex、Pi、または Command Code（`HERDR_ENV=1` が立っていること）
 - `python3`（標準ライブラリのみ使用）
-- 対応する `claude`、`codex`、または `pi` が `PATH` に通っていること
+- 対応する `claude`、`codex`、`pi`、または `cmd` が `PATH` に通っていること
 
 herdr の外で起動された場合は何もせずに終了する。
 
@@ -42,23 +42,27 @@ cd herdr-auto-title
 ./install.sh              # 入っているエージェント全部に入れる
 ./install.sh --codex      # 1 つだけにするとき
 ./install.sh --pi
+./install.sh --cmd
 ```
 
-生成スクリプトを置く。Claude Code と Codex は `UserPromptSubmit` に登録し、Pi にはユーザー入力で生成スクリプトを起動する拡張を置く。
+生成スクリプトを置く。Claude Code と Codex は `UserPromptSubmit` に登録し、Pi にはユーザー入力で生成スクリプトを起動する拡張を置き、Command Code には `transformInput` mod を置く。
 
 | | 生成スクリプト | 登録先 |
 | --- | --- | --- |
 | Claude Code | `~/.claude/hooks/herdr-auto-title.py` | `~/.claude/settings.json` |
 | Codex | `~/.codex/hooks/herdr-auto-title.py` | `~/.codex/hooks.json` |
 | Pi | `~/.pi/agent/herdr-auto-title/herdr-auto-title.py` | `~/.pi/agent/extensions/herdr-auto-title.ts` |
+| Command Code | `.commandcode/mods/herdr_auto_title.py` | `.commandcode/mods/herdr-auto-title.ts` |
 
 （`CLAUDE_CONFIG_DIR`、`CODEX_HOME`、`PI_CODING_AGENT_DIR` が設定されていればそちらを見る）
 
 既存の hook 設定は保持し、再実行しても登録が重複しない。書き換え前の設定は `.bak` に残る。
 
-反映されるのは **次に起動するセッションから**。起動済みの Pi セッションでは、インストール後に `/reload` を実行する。
+反映されるのは **次に起動するセッションから**。起動済みの Pi / Command Code セッションでは、インストール後に `/reload` を実行する。
 
 Codex は未確認の hook を実行しない。初回起動時のレビュー画面か `/hooks` で信頼すると動き出す（信頼の対象は登録されたコマンド文字列なので、置き場所を変えない限り再インストールしても確認し直しにはならない）。
+
+Command Code の mod は信頼が通るまで読み込まれない。初回はプロジェクトを信頼するか `cmd --trust` で起動する。
 
 ## タイトルの言語
 
@@ -83,9 +87,10 @@ export HERDR_AUTO_TITLE_LANG=ja
 ## アンインストール
 
 ```sh
-./install.sh --uninstall            # 両方から外す
+./install.sh --uninstall            # 全部から外す
 ./install.sh --uninstall --codex    # 1 つだけ
 ./install.sh --uninstall --pi
+./install.sh --uninstall --cmd
 ```
 
 登録を消し、置いたスクリプトを削除する。状態ファイル（`~/.claude/herdr-auto-title/`）は残るので、不要なら手で消す。
@@ -105,6 +110,7 @@ Calendar Versioning。`YYYY.0M.0D.MICRO` で、末尾は同じ日に何度リリ
 ```sh
 python3 ~/.claude/hooks/herdr-auto-title.py --version
 # Pi: python3 ~/.pi/agent/herdr-auto-title/herdr-auto-title.py --version
+# Command Code: python3 .commandcode/mods/herdr_auto_title.py --version
 ```
 
 ## 開発
